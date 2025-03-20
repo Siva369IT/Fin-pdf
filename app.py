@@ -10,7 +10,7 @@ import zipfile
 import io
 
 st.set_page_config(page_title="All-in-One PDF Tool", layout="centered")
-st.image("logo1.png", width=120)
+st.image("assets/logo1.png", width=120)
 st.title("**All-in-One PDF Converter**")
 
 # Initialize session state
