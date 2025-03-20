@@ -1,7 +1,8 @@
 streamlit
-pypdf2
+PyPDF2
+fpdf
 pillow
-python-pptx
 python-docx
-reportlab
-PyMuPDF
+python-pptx
+pymupdf
+requests
