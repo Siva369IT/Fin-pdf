@@ -2,10 +2,7 @@ import streamlit as st
 from PyPDF2 import PdfMerger, PdfReader, PdfWriter
 from fpdf import FPDF
 import fitz  # PyMuPDF
-import os
 from PIL import Image
-from docx import Document
-from pptx import Presentation
 import zipfile
 import io
 
@@ -13,7 +10,6 @@ st.set_page_config(page_title="All-in-One PDF Tool", layout="centered")
 st.image("assets/logo1.png", width=120)
 st.title("**All-in-One PDF Converter**")
 
-# Initialize session state
 if "uploaded_files" not in st.session_state:
     st.session_state.uploaded_files = []
 if "operation_selected" not in st.session_state:
@@ -42,19 +38,21 @@ file_instructions = {
 }
 
 if st.session_state.uploaded_files:
-    st.info("**You have uploaded files. Please remove them before changing the operation.**")
+    st.info("**Files uploaded. Remove them before changing operation.**")
 else:
     operation = st.selectbox("Choose what you'd like to do:", operations)
     if operation != "Select an operation":
         st.session_state.operation_selected = operation
 
 if st.session_state.operation_selected:
-    st.markdown(f"### 👉 Allowed files: {file_instructions.get(st.session_state.operation_selected, '')}")
+    st.markdown(f"### Allowed files: {file_instructions.get(st.session_state.operation_selected, '')}")
 
 if st.session_state.uploaded_files:
     if st.button("Remove Uploaded Files ❌"):
         st.session_state.uploaded_files = []
         st.session_state.operation_selected = ""
+        st.session_state.clear()
+        st.experimental_set_query_params()  # Refresh params to avoid rerun error
         st.experimental_rerun()
 
 if st.session_state.operation_selected and not st.session_state.uploaded_files:
@@ -75,8 +73,8 @@ if st.session_state.operation_selected and not st.session_state.uploaded_files:
 
 # Generate Empty PDF
 if st.session_state.operation_selected == "Generate Empty PDF":
-    num_pages = st.number_input("Enter number of pages: max-100k", min_value=1, max_value=100000, value=1)
-    file_name = st.text_input("Enter file name (without extension):", "empty_pdf")
+    num_pages = st.number_input("Number of pages:", min_value=1, max_value=100, value=1)
+    file_name = st.text_input("Enter file name:", "empty_pdf")
     if st.button("Generate PDF"):
         pdf = FPDF()
         for i in range(num_pages):
@@ -86,73 +84,33 @@ if st.session_state.operation_selected == "Generate Empty PDF":
         pdf_output = io.BytesIO()
         pdf.output(pdf_output)
         pdf_output.seek(0)
-        st.success("PDF generated successfully.")
         st.download_button("Download Empty PDF", pdf_output, f"{file_name}.pdf", mime="application/pdf")
 
-# Convert Any File to PDF (improved)
+# Convert Any File to PDF
 def convert_file_to_pdf(uploaded_file):
-    pdf_bytes = io.BytesIO()
-    file_name = uploaded_file.name.lower()
-
     if uploaded_file.type.startswith("image/"):
         image = Image.open(uploaded_file)
+        pdf_bytes = io.BytesIO()
         image.convert("RGB").save(pdf_bytes, format="PDF")
         pdf_bytes.seek(0)
         return pdf_bytes
-
-    elif file_name.endswith(".txt"):
+    elif uploaded_file.name.endswith(".txt"):
         content = uploaded_file.read().decode()
         pdf = FPDF()
         pdf.add_page()
         pdf.set_font("Arial", size=12)
         for line in content.split("\n"):
             pdf.cell(200, 10, txt=line, ln=True)
+        pdf_bytes = io.BytesIO()
         pdf.output(pdf_bytes)
         pdf_bytes.seek(0)
         return pdf_bytes
-
-    elif file_name.endswith(".docx"):
-        try:
-            doc = Document(uploaded_file)
-            pdf = FPDF()
-            pdf.set_font("Arial", size=12)
-            for para in doc.paragraphs:
-                pdf.add_page()
-                pdf.multi_cell(0, 10, para.text)
-            pdf.output(pdf_bytes)
-            pdf_bytes.seek(0)
-            return pdf_bytes
-        except Exception as e:
-            st.error(f"Error converting DOCX: {e}")
-            return None
-
-    elif file_name.endswith(".pptx"):
-        try:
-            prs = Presentation(uploaded_file)
-            pdf = FPDF()
-            pdf.set_font("Arial", size=12)
-            for i, slide in enumerate(prs.slides):
-                pdf.add_page()
-                pdf.cell(200, 10, txt=f"Slide {i+1}:", ln=True)
-                for shape in slide.shapes:
-                    if hasattr(shape, "text"):
-                        pdf.multi_cell(0, 10, shape.text)
-            pdf.output(pdf_bytes)
-            pdf_bytes.seek(0)
-            return pdf_bytes
-        except Exception as e:
-            st.error(f"Error converting PPTX: {e}")
-            return None
-
-    elif file_name.endswith(".pdf"):
+    elif uploaded_file.name.endswith((".pdf", ".docx", ".pptx")):
         return uploaded_file
-
-    else:
-        st.warning("Unsupported file type.")
-        return None
+    return None
 
 if st.session_state.operation_selected == "Convert Any File to PDF" and st.session_state.uploaded_files:
-    file_name = st.text_input("Enter custom PDF name (without extension):", "converted_file")
+    file_name = st.text_input("Enter PDF name:", "converted_file")
     if st.button("Convert and Download"):
         for file in st.session_state.uploaded_files:
             converted_pdf = convert_file_to_pdf(file)
@@ -161,8 +119,8 @@ if st.session_state.operation_selected == "Convert Any File to PDF" and st.sessi
 
 # Images to PDF
 if st.session_state.operation_selected == "Images to PDF" and st.session_state.uploaded_files:
-    file_name = st.text_input("Enter merged PDF name (without extension):", "images_pdf")
-    if st.button("Merge Images and Download"):
+    file_name = st.text_input("PDF name:", "images_pdf")
+    if st.button("Merge Images"):
         pdf_writer = PdfWriter()
         for image_file in st.session_state.uploaded_files:
             image = Image.open(image_file)
@@ -179,7 +137,7 @@ if st.session_state.operation_selected == "Images to PDF" and st.session_state.u
 # Extract Pages from PDF
 if st.session_state.operation_selected == "Extract Pages from PDF" and st.session_state.uploaded_files:
     page_nums = st.text_input("Enter pages to extract (e.g., 1,3,5-7):")
-    file_name = st.text_input("Enter extracted PDF name (without extension):", "extracted_pages")
+    file_name = st.text_input("Extracted PDF name:", "extracted_pages")
     if st.button("Extract and Download"):
         for file in st.session_state.uploaded_files:
             reader = PdfReader(file)
@@ -200,7 +158,7 @@ if st.session_state.operation_selected == "Extract Pages from PDF" and st.sessio
 
 # Merge PDFs
 if st.session_state.operation_selected == "Merge PDFs" and st.session_state.uploaded_files:
-    file_name = st.text_input("Enter merged PDF name (without extension):", "merged_pdf")
+    file_name = st.text_input("Merged PDF name:", "merged_pdf")
     if st.button("Merge and Download"):
         merger = PdfMerger()
         for pdf_file in st.session_state.uploaded_files:
@@ -212,7 +170,7 @@ if st.session_state.operation_selected == "Merge PDFs" and st.session_state.uplo
 
 # Split PDF
 if st.session_state.operation_selected == "Split PDF" and st.session_state.uploaded_files:
-    if st.button("Split and Download as ZIP"):
+    if st.button("Split and Download ZIP"):
         for file in st.session_state.uploaded_files:
             reader = PdfReader(file)
             zip_buffer = io.BytesIO()
@@ -225,11 +183,11 @@ if st.session_state.operation_selected == "Split PDF" and st.session_state.uploa
                     single_pdf.seek(0)
                     zip_file.writestr(f"page_{i + 1}.pdf", single_pdf.read())
             zip_buffer.seek(0)
-            st.download_button("Download Split PDFs (ZIP)", zip_buffer, "split_pages.zip", mime="application/zip")
+            st.download_button("Download Split ZIP", zip_buffer, "split_pages.zip", mime="application/zip")
 
 # Compress PDF
 if st.session_state.operation_selected == "Compress PDF" and st.session_state.uploaded_files:
-    file_name = st.text_input("Enter compressed PDF name (without extension):", "compressed_pdf")
+    file_name = st.text_input("Compressed PDF name:", "compressed_pdf")
     if st.button("Compress and Download"):
         for file in st.session_state.uploaded_files:
             doc = fitz.open(stream=file.read(), filetype="pdf")
@@ -240,7 +198,7 @@ if st.session_state.operation_selected == "Compress PDF" and st.session_state.up
 
 # Insert Page Numbers
 if st.session_state.operation_selected == "Insert Page Numbers" and st.session_state.uploaded_files:
-    file_name = st.text_input("Enter PDF name with page numbers (without extension):", "page_numbered_pdf")
+    file_name = st.text_input("PDF with numbers name:", "numbered_pdf")
     if st.button("Insert Numbers and Download"):
         for file in st.session_state.uploaded_files:
             doc = fitz.open(stream=file.read(), filetype="pdf")
@@ -251,8 +209,6 @@ if st.session_state.operation_selected == "Insert Page Numbers" and st.session_s
             numbered_pdf.seek(0)
             st.download_button("Download Numbered PDF", numbered_pdf, f"{file_name}.pdf", mime="application/pdf")
 
-# Footer
-st.markdown("""<hr style="margin-top: 50px;"/>
-<small>Developed by  
+st.markdown("""<hr><small>Developed by  
 **Pavan Sri Sai Mondem, Siva Satyamsetti, Uma Satyam Mounika Sapireddy,  
-Bhuvaneswari Devi Seru, Chandu Meela, Trainees from techwing 🧡**</small>""", unsafe_allow_html=True)
+Bhuvaneswari Devi Seru, Chandu Meela**</small>""", unsafe_allow_html=True)
