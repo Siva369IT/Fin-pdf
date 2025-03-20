@@ -51,7 +51,7 @@ if st.session_state.uploaded_files:
     if st.button("Remove Uploaded Files ❌"):
         st.session_state.uploaded_files = []
         st.session_state.operation_selected = ""
-        st.success("All uploaded files removed. Please select an operation.")
+        st.success("All uploaded files removed. if you wanna change the operation click remove file ❌ again.")
 
 if st.session_state.operation_selected and not st.session_state.uploaded_files:
     file_types_map = {
