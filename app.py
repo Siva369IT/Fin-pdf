@@ -37,12 +37,12 @@ file_instructions = {
     "Insert Page Numbers": "PDF"
 }
 
-if st.session_state.uploaded_files:
-    st.info("**Files uploaded. Remove them before changing operation.**")
-else:
+if not st.session_state.uploaded_files:
     operation = st.selectbox("Choose what you'd like to do:", operations)
     if operation != "Select an operation":
         st.session_state.operation_selected = operation
+else:
+    st.info("**Files uploaded. Remove them before changing operation.**")
 
 if st.session_state.operation_selected:
     st.markdown(f"### Allowed files: {file_instructions.get(st.session_state.operation_selected, '')}")
@@ -51,7 +51,7 @@ if st.session_state.uploaded_files:
     if st.button("Remove Uploaded Files ❌"):
         st.session_state.uploaded_files = []
         st.session_state.operation_selected = ""
-        st.success("All uploaded files removed. if you wanna change the operation click remove file ❌ again.")
+        st.experimental_rerun()
 
 if st.session_state.operation_selected and not st.session_state.uploaded_files:
     file_types_map = {
@@ -67,11 +67,11 @@ if st.session_state.operation_selected and not st.session_state.uploaded_files:
     uploaded = st.file_uploader("Upload file(s):", type=allowed_types, accept_multiple_files=True)
     if uploaded:
         st.session_state.uploaded_files = uploaded
-        st.success("Files uploaded. You can now continue!")
+        st.experimental_rerun()
 
 # Generate Empty PDF
-if st.session_state.operation_selected == "Generate Empty PDF":
-    num_pages = st.number_input("Number of pages:", min_value=1, max_value=100, value=1)
+if st.session_state.operation_selected == "Generate Empty PDF-maxx-100k":
+    num_pages = st.number_input("Number of pages:", min_value=1, max_value=100000, value=1)
     file_name = st.text_input("Enter file name:", "empty_pdf")
     if st.button("Generate PDF"):
         pdf = FPDF()
@@ -79,8 +79,8 @@ if st.session_state.operation_selected == "Generate Empty PDF":
             pdf.add_page()
             pdf.set_font("Arial", size=12)
             pdf.cell(200, 10, txt=f"Page {i + 1}", ln=True, align="C")
-        pdf_bytes = pdf.output(dest='S').encode('latin1')
-        pdf_output = io.BytesIO(pdf_bytes)
+        pdf_output = io.BytesIO()
+        pdf.output(pdf_output)
         pdf_output.seek(0)
         st.download_button("Download Empty PDF", pdf_output, f"{file_name}.pdf", mime="application/pdf")
 
@@ -99,10 +99,10 @@ def convert_file_to_pdf(uploaded_file):
         pdf.set_font("Arial", size=12)
         for line in content.split("\n"):
             pdf.cell(200, 10, txt=line, ln=True)
-        pdf_bytes = pdf.output(dest='S').encode('latin1')
-        pdf_output = io.BytesIO(pdf_bytes)
-        pdf_output.seek(0)
-        return pdf_output
+        pdf_bytes = io.BytesIO()
+        pdf.output(pdf_bytes)
+        pdf_bytes.seek(0)
+        return pdf_bytes
     elif uploaded_file.name.endswith((".pdf", ".docx", ".pptx")):
         return uploaded_file
     return None
@@ -166,22 +166,42 @@ if st.session_state.operation_selected == "Merge PDFs" and st.session_state.uplo
         merged_output.seek(0)
         st.download_button("Download Merged PDF", merged_output, f"{file_name}.pdf", mime="application/pdf")
 
-# Split PDF
+# Split PDF with new option A & B
 if st.session_state.operation_selected == "Split PDF" and st.session_state.uploaded_files:
-    if st.button("Split and Download ZIP"):
-        for file in st.session_state.uploaded_files:
-            reader = PdfReader(file)
-            zip_buffer = io.BytesIO()
-            with zipfile.ZipFile(zip_buffer, "a") as zip_file:
-                for i, page in enumerate(reader.pages):
+    split_option = st.radio("Select splitting option:", ["A) Split by range", "B) Split each page to PDF ZIP"])
+    if split_option == "A) Split by range":
+        range_size = st.number_input("Enter range size to split (example: 50 pages each file)", min_value=1, value=1)
+        if st.button("Split by range and Download"):
+            for file in st.session_state.uploaded_files:
+                reader = PdfReader(file)
+                total_pages = len(reader.pages)
+                part = 1
+                merger = PdfMerger()
+                for start in range(0, total_pages, range_size):
                     writer = PdfWriter()
-                    writer.add_page(page)
-                    single_pdf = io.BytesIO()
-                    writer.write(single_pdf)
-                    single_pdf.seek(0)
-                    zip_file.writestr(f"page_{i + 1}.pdf", single_pdf.read())
-            zip_buffer.seek(0)
-            st.download_button("Download Split ZIP", zip_buffer, "split_pages.zip", mime="application/zip")
+                    end = min(start + range_size, total_pages)
+                    for page_num in range(start, end):
+                        writer.add_page(reader.pages[page_num])
+                    pdf_buffer = io.BytesIO()
+                    writer.write(pdf_buffer)
+                    pdf_buffer.seek(0)
+                    st.download_button(f"Download Part {part}", pdf_buffer, f"split_part_{part}.pdf", mime="application/pdf")
+                    part += 1
+    else:
+        if st.button("Split pages individually & Download ZIP"):
+            for file in st.session_state.uploaded_files:
+                reader = PdfReader(file)
+                zip_buffer = io.BytesIO()
+                with zipfile.ZipFile(zip_buffer, "a") as zip_file:
+                    for i, page in enumerate(reader.pages):
+                        writer = PdfWriter()
+                        writer.add_page(page)
+                        single_pdf = io.BytesIO()
+                        writer.write(single_pdf)
+                        single_pdf.seek(0)
+                        zip_file.writestr(f"page_{i + 1}.pdf", single_pdf.read())
+                zip_buffer.seek(0)
+                st.download_button("Download ZIP of Individual Pages", zip_buffer, "split_pages.zip", mime="application/zip")
 
 # Compress PDF
 if st.session_state.operation_selected == "Compress PDF" and st.session_state.uploaded_files:
@@ -209,4 +229,4 @@ if st.session_state.operation_selected == "Insert Page Numbers" and st.session_s
 
 st.markdown("""<hr><small>Developed by  
 **Pavan Sri Sai Mondem, Siva Satyamsetti, Uma Satyam Mounika Sapireddy,  
-Bhuvaneswari Devi Seru, Chandu Meela**</small>""", unsafe_allow_html=True)
+Bhuvaneswari Devi Seru, Chandu Meela, Trainees from techwing 🧡**</small>""", unsafe_allow_html=True)
