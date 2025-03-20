@@ -63,7 +63,7 @@ if st.session_state.operation_selected:
 if st.session_state.uploaded_files:
     if st.button("Remove Uploaded Files ❌"):
         st.session_state.uploaded_files = []
-        st.experimental_rerun()
+        st.rerun()
 
 # Upload Section (only if operation selected)
 if st.session_state.operation_selected and st.session_state.operation_selected not in ["Generate Empty PDF"]:
