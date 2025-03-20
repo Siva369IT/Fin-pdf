@@ -51,9 +51,7 @@ if st.session_state.uploaded_files:
     if st.button("Remove Uploaded Files ❌"):
         st.session_state.uploaded_files = []
         st.session_state.operation_selected = ""
-        st.session_state.clear()
-        st.experimental_set_query_params()  # Refresh params to avoid rerun error
-        st.experimental_rerun()
+        st.success("All uploaded files removed. Please select an operation.")
 
 if st.session_state.operation_selected and not st.session_state.uploaded_files:
     file_types_map = {
@@ -69,7 +67,7 @@ if st.session_state.operation_selected and not st.session_state.uploaded_files:
     uploaded = st.file_uploader("Upload file(s):", type=allowed_types, accept_multiple_files=True)
     if uploaded:
         st.session_state.uploaded_files = uploaded
-        st.experimental_rerun()
+        st.success("Files uploaded. You can now continue!")
 
 # Generate Empty PDF
 if st.session_state.operation_selected == "Generate Empty PDF":
@@ -81,8 +79,8 @@ if st.session_state.operation_selected == "Generate Empty PDF":
             pdf.add_page()
             pdf.set_font("Arial", size=12)
             pdf.cell(200, 10, txt=f"Page {i + 1}", ln=True, align="C")
-        pdf_output = io.BytesIO()
-        pdf.output(pdf_output)
+        pdf_bytes = pdf.output(dest='S').encode('latin1')
+        pdf_output = io.BytesIO(pdf_bytes)
         pdf_output.seek(0)
         st.download_button("Download Empty PDF", pdf_output, f"{file_name}.pdf", mime="application/pdf")
 
@@ -101,10 +99,10 @@ def convert_file_to_pdf(uploaded_file):
         pdf.set_font("Arial", size=12)
         for line in content.split("\n"):
             pdf.cell(200, 10, txt=line, ln=True)
-        pdf_bytes = io.BytesIO()
-        pdf.output(pdf_bytes)
-        pdf_bytes.seek(0)
-        return pdf_bytes
+        pdf_bytes = pdf.output(dest='S').encode('latin1')
+        pdf_output = io.BytesIO(pdf_bytes)
+        pdf_output.seek(0)
+        return pdf_output
     elif uploaded_file.name.endswith((".pdf", ".docx", ".pptx")):
         return uploaded_file
     return None
