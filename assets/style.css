@@ -1,0 +1,65 @@
+/* Centered title */
+h1 {
+    color: #2c3e50;
+    font-family: 'Arial', sans-serif;
+    text-align: center;
+    font-weight: bold;
+    margin-bottom: 20px;
+}
+
+/* Main container */
+.block-container {
+    padding: 1rem 2rem;
+}
+
+/* Buttons styling */
+.stButton>button {
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    padding: 0.6em 1.2em;
+    font-size: 1em;
+    border-radius: 6px;
+    transition: all 0.3s;
+    cursor: pointer;
+}
+
+.stButton>button:hover {
+    background-color: #45a049;
+}
+
+/* File uploader styling */
+.css-1y4p8pa {
+    border: 2px dashed #ccc;
+    background-color: #fafafa;
+}
+
+.stFileUploader {
+    margin-top: 10px;
+}
+
+/* Select box styling */
+.stSelectbox>div>div>div {
+    background-color: #f0f0f0;
+    border-radius: 6px;
+    padding: 5px;
+}
+
+/* Footer styling */
+footer {
+    text-align: center;
+    font-size: small;
+    color: #666;
+    margin-top: 30px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    h1 {
+        font-size: 1.8rem;
+    }
+    .stButton>button {
+        width: 100%;
+        margin-bottom: 10px;
+    }
+}
